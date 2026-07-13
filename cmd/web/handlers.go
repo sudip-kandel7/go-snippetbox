@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 
@@ -16,6 +15,8 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// panic("OOPS! there is some problem!")
+
 	snippets, err := app.snippets.Latest()
 
 	if err != nil {
@@ -23,9 +24,10 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.render(w, http.StatusOK, "home.tmpl", &templateData{
-		Snippets: snippets,
-	})
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
+
+	app.render(w, http.StatusOK, "home.tmpl", data)
 
 	// for _, snippet := range snippets {
 	// 	fmt.Fprintf(w, "%+v\n", snippet)
@@ -83,23 +85,28 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	data := app.newTemplateData(r)
+	data.Snippet = snippet
+
+	app.render(w, http.StatusOK, "view.tmpl", data)
+
 	// fmt.Fprintf(w, "%+v", snippet)
-	files := []string{
-		"./ui/html/base.tmpl",
-		"./ui/html/partials/nav.tmpl",
-		"./ui/html/pages/view.tmpl",
-	}
+	// files := []string{
+	// 	"./ui/html/base.tmpl",
+	// 	"./ui/html/partials/nav.tmpl",
+	// 	"./ui/html/pages/view.tmpl",
+	// }
 
-	ts, err := template.ParseFiles(files...)
+	// ts, err := template.ParseFiles(files...)
 
-	if err != nil {
-		app.serverError(w, err)
-		return
-	}
+	// if err != nil {
+	// 	app.serverError(w, err)
+	// 	return
+	// }
 
-	data := &templateData {
-		Snippet: snippet,
-	}
+	// data := &templateData {
+	// 	Snippet: snippet,
+	// }
 
 	// err = ts.ExecuteTemplate(w, "base", snippet)
 	// err = ts.ExecuteTemplate(w, "base", data)
