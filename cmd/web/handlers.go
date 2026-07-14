@@ -6,9 +6,18 @@ import (
 	"net/http"
 	"strconv"
 
-	"go-snippetbox.kandel.net/internal/models"
 	"github.com/julienschmidt/httprouter"
+	"go-snippetbox.kandel.net/internal/models"
+	"go-snippetbox.kandel.net/internal/validator"
 )
+
+type snippetCreateForm struct {
+	Title   string
+	Content string
+	Expires int
+	// FieldErrors map[string]string
+	validator.Validator
+}
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	// if r.URL.Path != "/" {   // becuase now matches exactly '/'
@@ -68,7 +77,6 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 
 	params := httprouter.ParamsFromContext(r.Context())
-	
 
 	// id, err := strconv.Atoi(r.URL.Query().Get("id")) // without httprouter used before
 	id, err := strconv.Atoi(params.ByName("id")) // with httprouter
@@ -82,7 +90,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	snippet, err := app.snippets.Get(id)
 
 	if err != nil {
-		if errors.Is(err, models.ErrNoRecord){
+		if errors.Is(err, models.ErrNoRecord) {
 			app.notFound(w)
 		} else {
 			app.serverError(w, err)
@@ -124,24 +132,81 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 
-	w.Write([]byte("Display the form for creating a new snippet..."))
+	data := app.newTemplateData(r)
+
+	data.Form = snippetCreateForm{
+		Expires: 365,
+	}
+
+	app.render(w, http.StatusOK, "create.tmpl", data)
 
 }
 
 func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
 
-	title := "0 snail"
-	content := "0 snail\nClimb Mount Fuji,\nBut slowly!\n\n- Kobayashi Issa"
-	expires := 7
+	err := r.ParseForm()
 
-	id, err := app.snippets.Insert(title, content, expires)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	expires, err := strconv.Atoi(r.PostForm.Get("expires"))
+
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+	}
+
+	form := snippetCreateForm{
+		Title:   r.PostForm.Get("title"),
+		Content: r.PostForm.Get("content"),
+		Expires: expires,
+		// FieldErrors: map[string]string{},
+	}
+
+	// fieldErrors := make(map[string]string)
+
+	// if strings.TrimSpace(form.Title) == "" {
+	// 	fieldErrors["title"] = "This field cannot be blank"
+	// } else if utf8.RuneCountInString(form.Title) > 100 {
+	// 	fieldErrors["title"] = "This field cannot be more than 100 characters"
+	// }
+
+	// if strings.TrimSpace(form.Content) == "" {
+	// 	fieldErrors["content"] = "This field cannot be blank"
+	// }
+
+	// if expires != 1 && expires != 7 && expires != 365 {
+	// 	fieldErrors["expires"] = "This field must equal 1, 7, 365"
+	// }
+
+	// if len(fieldErrors) > 0 {
+	// 	form.FieldErrors = fieldErrors
+	// 	data := app.newTemplateData(r)
+	// 	data.Form = form
+	// 	app.render(w, http.StatusUnprocessableEntity, "create.tmpl", data)
+	// 	return
+	// }
+
+	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
+	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
+	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
+	form.CheckField(validator.PermittedInt(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, http.StatusUnprocessableEntity, "create.tmpl", data)
+		return
+	}
+
+	id, err := app.snippets.Insert(form.Title, form.Content, form.Expires)
 
 	if err != nil {
 		app.serverError(w, err)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/snippet/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 
 }
-
