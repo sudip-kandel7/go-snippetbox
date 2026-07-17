@@ -21,10 +21,12 @@ import (
 type application struct {
 	errorLog *log.Logger
 	infoLog  *log.Logger
-	snippets *models.SnippetModel
-	users    *models.UserModel
-	templateCache map[string]*template.Template
-	formDecoder *form.Decoder
+	snippets models.SnippetModelInterface // Use our new interface type.
+	users    models.UserModelInterface
+	// snippets *models.SnippetModel
+	// users    *models.UserModel
+	templateCache  map[string]*template.Template
+	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
 }
 
@@ -61,12 +63,12 @@ func main() {
 	sessionManager.Cookie.Secure = true
 
 	app := &application{
-		errorLog: errorLog,
-		infoLog:  infoLog,
-		snippets: &models.SnippetModel{DB: db},
-		users: &models.UserModel{DB: db},
-		templateCache: templateCache,
-		formDecoder: formDecoder,
+		errorLog:       errorLog,
+		infoLog:        infoLog,
+		snippets:       &models.SnippetModel{DB: db},
+		users:          &models.UserModel{DB: db},
+		templateCache:  templateCache,
+		formDecoder:    formDecoder,
 		sessionManager: sessionManager,
 	}
 
@@ -75,12 +77,12 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:      *addr,
-		ErrorLog:  errorLog,
-		Handler:   app.routes(),
-		TLSConfig: tlsConfig,
-		IdleTimeout: time.Minute,
-		ReadTimeout: 5 * time.Second,
+		Addr:         *addr,
+		ErrorLog:     errorLog,
+		Handler:      app.routes(),
+		TLSConfig:    tlsConfig,
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
@@ -104,6 +106,5 @@ func openDB(dsn string) (*sql.DB, error) {
 	}
 
 	return db, nil
-
 
 }
